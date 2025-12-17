@@ -1,0 +1,17 @@
+spec:
+  name: test-pipeline
+  version: 1.0.0
+  description: test-pipeline report pipeline
+  inputs:
+    - name: topic
+      type: text
+      label: Report Topic
+      required: true
+  outputs:
+    - md
+    - pdf
+  files:
+    prompts: prompts.md
+    template: template.njk
+    mdxTemplate: template.mdx.njk
+    bundle: bundle.js

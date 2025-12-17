@@ -1,0 +1,26 @@
+{
+  "name": "@dproc/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "dproc": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@dproc/core": "workspace:*",
+    "@dproc/types": "workspace:*",
+    "chalk": "^5.4.1",
+    "commander": "^13.0.0",
+    "debug": "^4.3.7",
+    "inquirer": "^13.1.0",
+    "ora": "^8.1.1"
+  },
+  "devDependencies": {
+    "@types/debug": "^4.1.12",
+    "@types/inquirer": "^9.0.7"
+  }
+}
