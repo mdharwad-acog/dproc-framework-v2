@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
-// Import only what we need, not the whole package
-import { PipelineScanner } from "@dproc/core";
-
-const PIPELINES_DIR = process.env.PIPELINES_DIR || "./pipelines";
+import { listPipelines } from "@/lib/server-api";
 
 export async function GET() {
   try {
-    const scanner = new PipelineScanner(PIPELINES_DIR);
-    const pipelines = await scanner.scanPipelines();
-
+    const pipelines = await listPipelines();
     return NextResponse.json({ pipelines });
   } catch (error) {
-    console.error("Error loading pipelines:", error);
+    console.error("Error fetching pipelines:", error);
     return NextResponse.json(
-      { error: "Failed to load pipelines", details: String(error) },
+      { error: "Failed to fetch pipelines" },
       { status: 500 }
     );
   }

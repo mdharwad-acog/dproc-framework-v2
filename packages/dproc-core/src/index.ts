@@ -1,23 +1,12 @@
-// Pipeline
-export { PipelineScanner } from "./pipeline/scanner.js";
-export { PipelineLoader } from "./pipeline/loader.js";
-export { PipelineValidator } from "./pipeline/validator.js";
-
-// LLM
-export { LLMProvider } from "./llm/provider.js";
-export { ReportGenerator } from "./llm/generator.js";
-
-// Template
-export { TemplateEngine } from "./template/nunjucks.js";
-
-// Queue
-export { JobQueue, type ReportJobData } from "./queue/jobs.js";
-
-// Database
-export { MetadataDB, type ExecutionRecord } from "./db/sqlite.js";
-
-// Config
-export { ConfigManager } from "./config/manager.js";
-
-// Executor
+// Core components
 export { ReportExecutor } from "./executor/index.js";
+export { DProcWorker } from "./queue/worker.js";
+export { MetadataDB } from "./db/sqlite.js";
+export { LLMProvider } from "./llm/provider.js";
+export { TemplateRenderer } from "./template/renderer.js";
+export { ConfigLoader } from "./config/index.js";
+export { PipelineLoader } from "./pipeline/loader.js";
+export { CacheManager } from "./cache/index.js";
+
+// Re-export all types from @dproc/types
+export type * from "@dproc/types";

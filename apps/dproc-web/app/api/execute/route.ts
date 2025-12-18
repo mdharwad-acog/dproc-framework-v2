@@ -1,129 +1,54 @@
 import { NextResponse } from "next/server";
-import {
-  PipelineScanner,
-  PipelineLoader,
-  ReportGenerator,
-  TemplateEngine,
-  MetadataDB,
-} from "@dproc/core";
-import type { ProviderConfig } from "@dproc/types";
+import { executeJob } from "@/lib/server-api";
 
-const PIPELINES_DIR = process.env.PIPELINES_DIR || "./pipelines";
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
-interface ExecuteRequest {
-  pipelineName: string;
-  inputs: Record<string, any>;
-  outputFormat: string;
-  provider: "openai" | "anthropic" | "google";
-  model: string;
-  userApiKey?: string;
-}
-
-export async function POST(req: Request) {
-  const executionId = `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
+export async function POST(request: Request) {
   try {
-    const body: ExecuteRequest = await req.json();
-    const { pipelineName, inputs, outputFormat, provider, model, userApiKey } =
-      body;
+    const body = await request.json();
+    const { pipelineName, inputs, outputFormat, priority, userId } = body;
 
-    // HYBRID MODEL: Priority - User key > System key > Error
-    const apiKey =
-      userApiKey || process.env[`${provider.toUpperCase()}_API_KEY`];
-
-    if (!apiKey) {
+    // Validation
+    if (!pipelineName) {
       return NextResponse.json(
-        {
-          error: `No API key available for ${provider}. Please provide your own key or contact administrator.`,
-          requiresUserKey: true,
-        },
+        { error: "Pipeline name is required" },
         { status: 400 }
       );
     }
 
-    const providerConfig: ProviderConfig = {
-      type: provider,
-      apiKey,
-      model,
-      temperature: 0.7,
-      maxTokens: 4096,
-    };
-
-    // Initialize database
-    const db = new MetadataDB("./dproc.db");
-    db.insertExecution({
-      id: executionId,
-      pipelineName,
-      inputs: JSON.stringify(inputs),
-      outputFormat,
-      status: "processing",
-      createdAt: Date.now(),
-    });
-
-    // Get pipeline path
-    const scanner = new PipelineScanner(PIPELINES_DIR);
-    const pipelinePath = await scanner.getPipelinePath(pipelineName);
-
-    if (!pipelinePath) {
-      throw new Error(`Pipeline "${pipelineName}" not found`);
+    if (!inputs || typeof inputs !== "object") {
+      return NextResponse.json(
+        { error: "Inputs must be a valid object" },
+        { status: 400 }
+      );
     }
 
-    // Load pipeline config
-    const loader = new PipelineLoader();
-    const config = await loader.load(pipelinePath);
+    if (!outputFormat) {
+      return NextResponse.json(
+        { error: "Output format is required" },
+        { status: 400 }
+      );
+    }
 
-    // Load prompt template
-    const promptTemplate = await loader.getPromptTemplate(pipelinePath, config);
-
-    // Render prompt (skip bundle for web UI)
-    const templateEngine = new TemplateEngine();
-    const filledPrompt = templateEngine.renderPrompt(
-      promptTemplate,
+    // Execute job
+    const result = await executeJob({
+      pipelineName,
       inputs,
-      null
-    );
-
-    // Generate report
-    const generator = new ReportGenerator();
-    const reportResult = await generator.generate(filledPrompt, providerConfig);
-
-    // Load render template
-    const renderTemplate = await loader.getRenderTemplate(pipelinePath, config);
-
-    // Render final report
-    const finalReport = templateEngine.renderReport(
-      renderTemplate,
-      reportResult.content,
-      inputs
-    );
-
-    // Update database
-    db.updateExecutionStatus(
-      executionId,
-      "completed",
-      undefined,
-      reportResult.metadata.executionTime,
-      reportResult.metadata.tokensUsed
-    );
-    db.close();
-
-    return NextResponse.json({
-      success: true,
-      report: finalReport,
-      metadata: reportResult.metadata,
-      keySource: userApiKey ? "user" : "system",
+      outputFormat,
+      priority: priority || "normal",
+      userId,
     });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Execution error:", error);
-
-    // Update database with error
-    try {
-      const db = new MetadataDB("./dproc.db");
-      db.updateExecutionStatus(executionId, "failed", String(error));
-      db.close();
-    } catch {}
-
-    const message = error instanceof Error ? error.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error("Error executing job:", error);
+    return NextResponse.json(
+      {
+        error: "Failed to execute job",
+        details: (error as Error).message,
+      },
+      { status: 500 }
+    );
   }
 }

@@ -6,7 +6,7 @@
     "dproc": "./dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "dev": "tsc --watch",
     "clean": "rm -rf dist"
   },
@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",
-    "@types/inquirer": "^9.0.7"
+    "@types/inquirer": "^9.0.7",
+    "dotenv": "^17.2.3"
   }
 }

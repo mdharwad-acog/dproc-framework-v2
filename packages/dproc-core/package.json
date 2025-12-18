@@ -5,10 +5,11 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+    ".": "./dist/index.js",
+    "./dist/db/sqlite.js": "./dist/db/sqlite.js",
+    "./dist/pipeline/loader.js": "./dist/pipeline/loader.js",
+    "./dist/executor/index.js": "./dist/executor/index.js",
+    "./dist/queue/worker.js": "./dist/queue/worker.js"
   },
   "scripts": {
     "build": "tsc",
@@ -21,17 +22,25 @@
     "@ai-sdk/openai": "^1.0.9",
     "@dproc/types": "workspace:*",
     "ai": "^4.0.38",
+    "axios": "^1.13.2",
     "better-sqlite3": "^11.8.1",
     "bullmq": "^5.26.3",
+    "cheerio": "^1.1.2",
+    "csv-parse": "^6.1.0",
     "debug": "^4.3.7",
     "ioredis": "^5.4.2",
     "nunjucks": "^3.2.4",
+    "papaparse": "^5.5.3",
+    "xml2js": "^0.6.2",
     "yaml": "^2.6.1",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.12",
     "@types/debug": "^4.1.12",
-    "@types/nunjucks": "^3.2.6"
+    "@types/nunjucks": "^3.2.6",
+    "@types/papaparse": "^5.5.2",
+    "@types/xml2js": "^0.4.14",
+    "dotenv": "^17.2.3"
   }
 }

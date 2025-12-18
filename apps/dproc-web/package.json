@@ -22,6 +22,7 @@
     "@radix-ui/react-slot": "^1.2.4",
     "ai": "^4.3.19",
     "better-sqlite3": "^11.10.0",
+    "bullmq": "^5.66.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.561.0",
@@ -31,6 +32,7 @@
     "react-dom": "19.2.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "server-only": "^0.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
     "zod": "^3.23.8"

@@ -1,63 +1,131 @@
-import fs from "fs/promises";
+import { readdir, readFile, access, constants } from "fs/promises";
 import path from "path";
 import { parse } from "yaml";
-import {
-  PipelineFileConfigSchema,
-  type PipelineFileConfig,
-  type PipelineSpec,
-} from "@dproc/types";
-import createDebug from "debug";
-
-const debug = createDebug("dproc:loader");
+import type { PipelineSpec, LLMConfig } from "@dproc/types";
 
 export class PipelineLoader {
-  async load(pipelinePath: string): Promise<PipelineFileConfig> {
-    const configPath = path.join(pipelinePath, "config.yml");
+  constructor(private pipelinesDir: string) {}
 
+  /**
+   * List all available pipelines
+   */
+  async listPipelines(): Promise<string[]> {
     try {
-      const configContent = await fs.readFile(configPath, "utf-8");
-      const rawConfig = parse(configContent);
-
-      // Validate using the correct schema (PipelineFileConfig, not PipelineConfig)
-      const config = PipelineFileConfigSchema.parse(rawConfig);
-
-      debug(`Loaded pipeline config from ${configPath}`);
-      return config;
+      const entries = await readdir(this.pipelinesDir, { withFileTypes: true });
+      return entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name);
     } catch (error) {
-      debug(`Error loading pipeline config: ${error}`);
-      throw new Error(
-        `Failed to load pipeline config from ${configPath}: ${error}`
-      );
+      return [];
     }
   }
 
-  async getPromptTemplate(
-    pipelinePath: string,
-    config: PipelineFileConfig
-  ): Promise<string> {
-    const promptPath = path.join(pipelinePath, config.spec.files.prompts);
-    return await fs.readFile(promptPath, "utf-8");
-  }
-
-  async getRenderTemplate(
-    pipelinePath: string,
-    config: PipelineFileConfig
-  ): Promise<string> {
-    const templatePath = path.join(pipelinePath, config.spec.files.template);
-    return await fs.readFile(templatePath, "utf-8");
-  }
-
-  async getMdxTemplate(
-    pipelinePath: string,
-    config: PipelineFileConfig
-  ): Promise<string | null> {
-    if (!config.spec.files.mdxTemplate) return null;
-
-    const mdxPath = path.join(pipelinePath, config.spec.files.mdxTemplate);
+  /**
+   * Check if pipeline exists
+   */
+  async pipelineExists(name: string): Promise<boolean> {
+    const pipelinePath = path.join(this.pipelinesDir, name);
     try {
-      return await fs.readFile(mdxPath, "utf-8");
+      await access(pipelinePath, constants.F_OK);
+      return true;
     } catch {
-      return null;
+      return false;
     }
+  }
+
+  /**
+   * Get pipeline path
+   */
+  getPipelinePath(name: string): string {
+    return path.join(this.pipelinesDir, name);
+  }
+
+  /**
+   * Load pipeline spec.yml
+   */
+  async loadSpec(pipelineName: string): Promise<PipelineSpec> {
+    const specPath = path.join(this.pipelinesDir, pipelineName, "spec.yml");
+    const content = await readFile(specPath, "utf-8");
+    return parse(content) as PipelineSpec;
+  }
+
+  /**
+   * Load pipeline config.yml
+   */
+  async loadConfig(pipelineName: string): Promise<LLMConfig> {
+    const configPath = path.join(this.pipelinesDir, pipelineName, "config.yml");
+    const content = await readFile(configPath, "utf-8");
+    return parse(content) as LLMConfig;
+  }
+
+  /**
+   * Validate pipeline structure
+   */
+  async validatePipeline(pipelineName: string): Promise<{
+    valid: boolean;
+    errors: string[];
+  }> {
+    const errors: string[] = [];
+    const pipelinePath = this.getPipelinePath(pipelineName);
+
+    // Check required files
+    const requiredFiles = ["spec.yml", "config.yml", "processor.ts"];
+
+    const requiredDirs = ["prompts", "templates"];
+
+    for (const file of requiredFiles) {
+      const filePath = path.join(pipelinePath, file);
+      try {
+        await access(filePath, constants.F_OK);
+      } catch {
+        errors.push(`Missing required file: ${file}`);
+      }
+    }
+
+    for (const dir of requiredDirs) {
+      const dirPath = path.join(pipelinePath, dir);
+      try {
+        await access(dirPath, constants.F_OK);
+      } catch {
+        errors.push(`Missing required directory: ${dir}`);
+      }
+    }
+
+    // Validate spec.yml structure
+    try {
+      const spec = await this.loadSpec(pipelineName);
+      if (!spec.pipeline?.name) {
+        errors.push("spec.yml: missing pipeline.name");
+      }
+      if (!spec.pipeline?.version) {
+        errors.push("spec.yml: missing pipeline.version");
+      }
+      if (!spec.inputs || spec.inputs.length === 0) {
+        errors.push("spec.yml: missing or empty inputs array");
+      }
+      if (!spec.outputs || spec.outputs.length === 0) {
+        errors.push("spec.yml: missing or empty outputs array");
+      }
+    } catch (error: any) {
+      errors.push(`spec.yml: ${error.message}`);
+    }
+
+    // Validate config.yml structure
+    try {
+      const config = await this.loadConfig(pipelineName);
+      if (!config.llm?.provider) {
+        errors.push("config.yml: missing llm.provider");
+      }
+      if (!config.llm?.model) {
+        errors.push("config.yml: missing llm.model");
+      }
+    } catch (error: any) {
+      errors.push(`config.yml: ${error.message}`);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
   }
 }
