@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Worker } from "bullmq";
-import { ReportExecutor } from "@dproc/core/dist/executor/index.js";
-import { WorkspaceManager } from "@dproc/core/dist/config/workspace.js";
+import { ReportExecutor } from "@aganitha/dproc-core/dist/executor/index.js";
+import { WorkspaceManager } from "@aganitha/dproc-core/dist/config/workspace.js";
 import path from "path";
 
 // Initialize workspace

@@ -1,9 +1,9 @@
 import "server-only";
-import { createDatabase } from "@dproc/core/dist/db/factory.js";
-import type { DatabaseAdapter } from "@dproc/core/dist/db/adapter.js";
-import { PipelineLoader } from "@dproc/core/dist/pipeline/loader.js";
-import { WorkspaceManager } from "@dproc/core/dist/config/workspace.js";
-import type { JobData, ExecutionRecord, PipelineStats } from "@dproc/types";
+import { createDatabase } from "@aganitha/dproc-core/dist/db/factory.js";
+import type { DatabaseAdapter } from "@aganitha/dproc-core/dist/db/adapter.js";
+import { PipelineLoader } from "@aganitha/dproc-core/dist/pipeline/loader.js";
+import { WorkspaceManager } from "@aganitha/dproc-core/dist/config/workspace.js";
+import type { JobData, ExecutionRecord, PipelineStats } from "@aganitha/dproc-types";
 import path from "path";
 import { Queue } from "bullmq";
 

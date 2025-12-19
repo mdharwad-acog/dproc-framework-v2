@@ -14,5 +14,5 @@ export {
 export { PipelineLoader } from "./pipeline/loader.js";
 export { CacheManager } from "./cache/index.js";
 
-// Re-export all types from @dproc/types
-export type * from "@dproc/types";
+// Re-export all types from @aganitha/dproc-types
+export type * from "@aganitha/dproc-types";

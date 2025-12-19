@@ -1,5 +1,5 @@
 import { Pool, PoolClient } from "pg";
-import type { ExecutionRecord, PipelineStats } from "@dproc/types";
+import type { ExecutionRecord, PipelineStats } from "@aganitha/dproc-types";
 import { DatabaseAdapter, ExecutionFilters } from "./adapter.js";
 
 export class PostgreSQLAdapter implements DatabaseAdapter {

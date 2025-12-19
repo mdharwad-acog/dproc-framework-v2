@@ -26,6 +26,12 @@ importers:
 
   apps/dproc-web:
     dependencies:
+      '@aganitha/dproc-core':
+        specifier: ^0.1.2
+        version: 0.1.2(react@19.2.1)
+      '@aganitha/dproc-types':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@ai-sdk/anthropic':
         specifier: ^1.0.5
         version: 1.2.12(zod@3.25.76)
@@ -35,12 +41,6 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.9
         version: 1.3.24(zod@3.25.76)
-      '@dproc/core':
-        specifier: workspace:*
-        version: link:../../packages/dproc-core
-      '@dproc/types':
-        specifier: workspace:*
-        version: link:../../packages/dproc-types
       '@radix-ui/react-dialog':
         specifier: ^1.1.15
         version: 1.1.15(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
@@ -144,12 +144,15 @@ importers:
 
   packages/dproc-cli:
     dependencies:
-      '@dproc/core':
-        specifier: workspace:*
-        version: link:../dproc-core
-      '@dproc/types':
-        specifier: workspace:*
-        version: link:../dproc-types
+      '@aganitha/dproc-core':
+        specifier: ^0.1.2
+        version: 0.1.2(react@19.2.3)
+      '@aganitha/dproc-types':
+        specifier: ^0.1.2
+        version: 0.1.2
+      better-sqlite3:
+        specifier: ^12.5.0
+        version: 12.5.0
       bullmq:
         specifier: ^5.66.1
         version: 5.66.1
@@ -181,6 +184,9 @@ importers:
 
   packages/dproc-core:
     dependencies:
+      '@aganitha/dproc-types':
+        specifier: ^0.1.2
+        version: 0.1.2
       '@ai-sdk/anthropic':
         specifier: ^1.0.5
         version: 1.2.12(zod@3.25.76)
@@ -190,9 +196,6 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.9
         version: 1.3.24(zod@3.25.76)
-      '@dproc/types':
-        specifier: workspace:*
-        version: link:../dproc-types
       ai:
         specifier: ^4.0.38
         version: 4.3.19(react@19.2.3)(zod@3.25.76)
@@ -272,6 +275,12 @@ importers:
         version: 5.9.3
 
 packages:
+
+  '@aganitha/dproc-core@0.1.2':
+    resolution: {integrity: sha512-RB08AteWtltg8wuIzb9OK5Nqo63bf+YvdUcRpl9J/6p6/6qln1qOU6tkivt4D3I9W/powkBaM7mRt5gp0ns0vg==}
+
+  '@aganitha/dproc-types@0.1.2':
+    resolution: {integrity: sha512-WxB/SdNXWs9r8fGdi07goF8ROGKj1W6eQeRN18JLIfaPvgC3WtkeZxxN/JesDuUScRe4pdS5xn6VdkSUqnNRQw==}
 
   '@ai-sdk/anthropic@1.2.12':
     resolution: {integrity: sha512-YSzjlko7JvuiyQFmI9RN1tNZdEiZxc+6xld/0tq/VkJaHpEzGAb1yiNxxvmYVcjvfu/PcvCxAAYXmTYQQ63IHQ==}
@@ -1833,6 +1842,10 @@ packages:
 
   better-sqlite3@11.10.0:
     resolution: {integrity: sha512-EwhOpyXiOEL/lKzHz9AW1msWFNzGc/z+LzeB3/jnFJpxu+th2yqvzsSWas1v9jgs9+xiXJcD5A8CJxAG2TaghQ==}
+
+  better-sqlite3@12.5.0:
+    resolution: {integrity: sha512-WwCZ/5Diz7rsF29o27o0Gcc1Du+l7Zsv7SYtVPG0X3G/uUI1LqdxrQI7c9Hs2FWpqXXERjW9hp6g3/tH7DlVKg==}
+    engines: {node: 20.x || 22.x || 23.x || 24.x || 25.x}
 
   bindings@1.5.0:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
@@ -3878,6 +3891,62 @@ packages:
 
 snapshots:
 
+  '@aganitha/dproc-core@0.1.2(react@19.2.1)':
+    dependencies:
+      '@aganitha/dproc-types': link:packages/dproc-types
+      '@ai-sdk/anthropic': 1.2.12(zod@3.25.76)
+      '@ai-sdk/google': 1.2.22(zod@3.25.76)
+      '@ai-sdk/openai': 1.3.24(zod@3.25.76)
+      ai: 4.3.19(react@19.2.1)(zod@3.25.76)
+      axios: 1.13.2(debug@4.4.3)
+      better-sqlite3: 11.10.0
+      bullmq: 5.66.1
+      cheerio: 1.1.2
+      csv-parse: 6.1.0
+      debug: 4.4.3
+      ioredis: 5.8.2
+      nunjucks: 3.2.4
+      papaparse: 5.5.3
+      pg: 8.16.3
+      xml2js: 0.6.2
+      yaml: 2.8.2
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - chokidar
+      - pg-native
+      - react
+      - supports-color
+
+  '@aganitha/dproc-core@0.1.2(react@19.2.3)':
+    dependencies:
+      '@aganitha/dproc-types': link:packages/dproc-types
+      '@ai-sdk/anthropic': 1.2.12(zod@3.25.76)
+      '@ai-sdk/google': 1.2.22(zod@3.25.76)
+      '@ai-sdk/openai': 1.3.24(zod@3.25.76)
+      ai: 4.3.19(react@19.2.3)(zod@3.25.76)
+      axios: 1.13.2(debug@4.4.3)
+      better-sqlite3: 11.10.0
+      bullmq: 5.66.1
+      cheerio: 1.1.2
+      csv-parse: 6.1.0
+      debug: 4.4.3
+      ioredis: 5.8.2
+      nunjucks: 3.2.4
+      papaparse: 5.5.3
+      pg: 8.16.3
+      xml2js: 0.6.2
+      yaml: 2.8.2
+      zod: 3.25.76
+    transitivePeerDependencies:
+      - chokidar
+      - pg-native
+      - react
+      - supports-color
+
+  '@aganitha/dproc-types@0.1.2':
+    dependencies:
+      zod: 3.25.76
+
   '@ai-sdk/anthropic@1.2.12(zod@3.25.76)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
@@ -5324,6 +5393,11 @@ snapshots:
       bindings: 1.5.0
       prebuild-install: 7.1.3
 
+  better-sqlite3@12.5.0:
+    dependencies:
+      bindings: 1.5.0
+      prebuild-install: 7.1.3
+
   bindings@1.5.0:
     dependencies:
       file-uri-to-path: 1.0.0
@@ -5765,7 +5839,7 @@ snapshots:
       eslint: 9.39.2(jiti@2.6.1)
       eslint-import-resolver-node: 0.3.9
       eslint-import-resolver-typescript: 3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-jsx-a11y: 6.10.2(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react: 7.37.5(eslint@9.39.2(jiti@2.6.1))
       eslint-plugin-react-hooks: 7.0.1(eslint@9.39.2(jiti@2.6.1))
@@ -5798,7 +5872,7 @@ snapshots:
       tinyglobby: 0.2.15
       unrs-resolver: 1.11.1
     optionalDependencies:
-      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1))
+      eslint-plugin-import: 2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1))
     transitivePeerDependencies:
       - supports-color
 
@@ -5813,7 +5887,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1)(eslint@9.39.2(jiti@2.6.1)):
+  eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint-import-resolver-typescript@3.10.1(eslint-plugin-import@2.32.0(@typescript-eslint/parser@8.50.0(eslint@9.39.2(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)))(eslint@9.39.2(jiti@2.6.1)):
     dependencies:
       '@rtsao/scc': 1.1.0
       array-includes: 3.1.9

@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import type { ExecutionRecord, PipelineStats } from "@dproc/types";
+import type { ExecutionRecord, PipelineStats } from "@aganitha/dproc-types";
 import { DatabaseAdapter, ExecutionFilters } from "./adapter.js";
 import { WorkspaceManager } from "../config/workspace.js";
 

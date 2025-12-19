@@ -1,7 +1,7 @@
 import { readdir, readFile, access, constants } from "fs/promises";
 import path from "path";
 import { parse } from "yaml";
-import type { PipelineSpec, LLMConfig } from "@dproc/types";
+import type { PipelineSpec, LLMConfig } from "@aganitha/dproc-types";
 
 export class PipelineLoader {
   constructor(private pipelinesDir: string) {}

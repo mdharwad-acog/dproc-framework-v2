@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { parse } from "yaml";
-import type { SystemConfig, LLMConfig, PipelineSpec } from "@dproc/types";
+import type { SystemConfig, LLMConfig, PipelineSpec } from "@aganitha/dproc-types";
 import path from "path";
 import { SecretsManager } from "./secrets.js";
 import "dotenv/config";

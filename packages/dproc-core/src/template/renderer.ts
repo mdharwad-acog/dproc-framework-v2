@@ -1,5 +1,5 @@
 import nunjucks from "nunjucks";
-import type { TemplateContext } from "@dproc/types";
+import type { TemplateContext } from "@aganitha/dproc-types";
 
 export class TemplateRenderer {
   private env: nunjucks.Environment;

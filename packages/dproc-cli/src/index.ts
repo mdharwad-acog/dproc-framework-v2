@@ -5,13 +5,14 @@ import {
   PipelineLoader,
   SecretsManager,
   WorkspaceManager,
-} from "@dproc/core";
-import { createDatabase } from "@dproc/core/dist/db/factory.js";
+} from "@aganitha/dproc-core";
+import { createDatabase } from "@aganitha/dproc-core/dist/db/factory.js";
 import path from "path";
 import { mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
-import type { PipelineStats } from "@dproc/types";
+import type { PipelineStats } from "@aganitha/dproc-types";
 import chalk from "chalk";
 import inquirer from "inquirer";
+import "dotenv/config";
 
 const program = new Command();
 
@@ -114,7 +115,7 @@ execution:
       console.log("✓ Created config.yml");
 
       // Create processor.ts
-      const processor = `import type { ProcessorContext, ProcessorResult } from "@dproc/types";
+      const processor = `import type { ProcessorContext, ProcessorResult } from "@aganitha/dproc-types";
 
 /**
  * Data processor for ${name} pipeline

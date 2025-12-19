@@ -17,7 +17,7 @@ import type {
   TemplateContext,
   PipelineSpec,
   LLMConfig,
-} from "@dproc/types";
+} from "@aganitha/dproc-types";
 
 export class ReportExecutor {
   private queue: Queue;

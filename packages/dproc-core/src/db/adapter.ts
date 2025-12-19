@@ -1,4 +1,4 @@
-import type { ExecutionRecord, PipelineStats } from "@dproc/types";
+import type { ExecutionRecord, PipelineStats } from "@aganitha/dproc-types";
 
 export interface ExecutionFilters {
   pipelineName?: string;

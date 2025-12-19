@@ -1,6 +1,6 @@
 import { Worker } from "bullmq";
 import { ReportExecutor } from "../executor/index.js";
-import type { JobData } from "@dproc/types";
+import type { JobData } from "@aganitha/dproc-types";
 
 export class DProcWorker {
   private worker: Worker;
