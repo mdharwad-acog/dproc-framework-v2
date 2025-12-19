@@ -91,7 +91,7 @@ export default function HomePage() {
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold mb-1">23.4s</div>
-                <div className="text-sm text-blue-200">Avg Time</div>
+                <div className="text-sm text-blue-200">Avg. Time</div>
               </div>
             </div>
           </div>

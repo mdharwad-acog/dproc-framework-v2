@@ -1,46 +1,102 @@
-import { DProcWorker } from "@dproc/core";
+#!/usr/bin/env node
+import { Worker } from "bullmq";
+import { ReportExecutor } from "@dproc/core/dist/executor/index.js";
+import { WorkspaceManager } from "@dproc/core/dist/config/workspace.js";
 import path from "path";
 
-// Validate environment
-const requiredEnvVars = [
+// Initialize workspace
+const workspace = new WorkspaceManager();
+
+// Validate environment (warnings only, not required)
+const possibleEnvVars = [
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
   "GOOGLE_API_KEY",
 ];
-const missing = requiredEnvVars.filter((key) => !process.env[key]);
+const missing = possibleEnvVars.filter((key) => !process.env[key]);
 
 if (missing.length > 0) {
   console.warn(`⚠️  Warning: Missing API keys: ${missing.join(", ")}`);
-  console.warn("Some LLM providers may not work.\n");
+  console.warn("API keys can also be configured via 'dproc configure'\n");
 }
 
-// Start worker
-const worker = new DProcWorker(path.join(process.cwd(), "pipelines"), {
+// Redis configuration
+const redisConfig = {
   host: process.env.REDIS_HOST || "localhost",
   port: parseInt(process.env.REDIS_PORT || "6379"),
   password: process.env.REDIS_PASSWORD,
+};
+
+console.log("🚀 DProc Worker starting...");
+console.log("📂 Workspace:", workspace.getRoot());
+console.log("📂 Pipelines:", workspace.getPipelinesDir());
+console.log("📊 Database:", workspace.getDatabasePath());
+console.log("📡 Redis:", `${redisConfig.host}:${redisConfig.port}`);
+
+// Initialize executor
+const executor = new ReportExecutor(workspace.getPipelinesDir(), redisConfig);
+
+// Create BullMQ worker
+const worker = new Worker(
+  "dproc-jobs",
+  async (job) => {
+    console.log(`\n[${new Date().toISOString()}] Processing job ${job.id}...`);
+    await executor.execute(job.data);
+  },
+  {
+    connection: redisConfig,
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || "2"),
+    removeOnComplete: {
+      count: 100,
+      age: 24 * 3600, // Keep for 24 hours
+    },
+    removeOnFail: {
+      count: 500,
+      age: 7 * 24 * 3600, // Keep for 7 days
+    },
+  }
+);
+
+// Event handlers
+worker.on("completed", (job) => {
+  console.log(`✓ Job ${job.id} completed successfully`);
 });
 
-console.log("🚀 DProc Worker started");
-console.log("📂 Pipelines directory:", path.join(process.cwd(), "pipelines"));
-console.log(
-  "📡 Redis:",
-  `${process.env.REDIS_HOST || "localhost"}:${process.env.REDIS_PORT || "6379"}`
-);
+worker.on("failed", (job, err) => {
+  console.error(`✗ Job ${job?.id} failed:`, err.message);
+});
+
+worker.on("error", (err) => {
+  console.error("Worker error:", err);
+});
+
+worker.on("stalled", (jobId) => {
+  console.warn(`⚠️  Job ${jobId} stalled`);
+});
+
+worker.on("active", (job) => {
+  console.log(`▶ Job ${job.id} is now active`);
+});
+
+console.log("\n✓ DProc Worker ready!");
+console.log(`  Concurrency: ${process.env.WORKER_CONCURRENCY || 2}`);
 console.log("\n💻 Accepting jobs from:");
-console.log("  - CLI (pnpm dproc execute)");
-console.log("  - Web UI (http://localhost:3000)");
+console.log("  - CLI: dproc execute <pipeline>");
+console.log("  - Web UI: http://localhost:3000");
 console.log("\nWaiting for jobs...\n");
 
 // Graceful shutdown
-process.on("SIGTERM", async () => {
-  console.log("\nShutting down worker...");
-  await worker.close();
-  process.exit(0);
-});
+const shutdown = async () => {
+  console.log("\n🛑 Shutting down worker gracefully...");
+  try {
+    await worker.close();
+    console.log("✓ Worker closed successfully");
+    process.exit(0);
+  } catch (error) {
+    console.error("Error during shutdown:", error);
+    process.exit(1);
+  }
+};
 
-process.on("SIGINT", async () => {
-  console.log("\nShutting down worker...");
-  await worker.close();
-  process.exit(0);
-});
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);

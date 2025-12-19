@@ -102,8 +102,8 @@ export function PipelineForm({ pipeline, onSubmit }: PipelineFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{pipeline.spec.name}</CardTitle>
-        <CardDescription>{pipeline.spec.description}</CardDescription>
+        <CardTitle>{pipeline.spec.pipeline.name}</CardTitle>
+        <CardDescription>{pipeline.spec.pipeline.description}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">

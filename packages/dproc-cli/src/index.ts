@@ -1,30 +1,34 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { ReportExecutor, MetadataDB, PipelineLoader } from "@dproc/core";
-import path from "path";
 import {
-  readFile,
-  readdir,
-  stat,
-  access,
-  constants,
-  writeFile,
-  mkdir,
-} from "fs/promises";
+  ReportExecutor,
+  PipelineLoader,
+  SecretsManager,
+  WorkspaceManager,
+} from "@dproc/core";
+import { createDatabase } from "@dproc/core/dist/db/factory.js";
+import path from "path";
+import { mkdir, readFile, readdir, stat, writeFile } from "fs/promises";
 import type { PipelineStats } from "@dproc/types";
+import chalk from "chalk";
+import inquirer from "inquirer";
 
 const program = new Command();
 
 // Read package.json for version
 const packageJson = JSON.parse(
-  await readFile(new URL("../../../package.json", import.meta.url), "utf-8")
+  await readFile(new URL("../package.json", import.meta.url), "utf-8")
 );
+
+// Initialize workspace manager
+const workspace = new WorkspaceManager();
 
 program
   .name("dproc")
   .description("DProc Framework - Build AI-powered report pipelines")
   .version(packageJson.version);
 
+// ... (keep all the init and run commands as they are) ...
 /**
  * Initialize a new pipeline
  */
@@ -430,14 +434,11 @@ program
       const inputs = options.input ? JSON.parse(options.input) : {};
 
       // Create executor
-      const executor = new ReportExecutor(
-        path.join(process.cwd(), "pipelines"),
-        {
-          host: process.env.REDIS_HOST || "localhost",
-          port: parseInt(process.env.REDIS_PORT || "6379"),
-          password: process.env.REDIS_PASSWORD,
-        }
-      );
+      const executor = new ReportExecutor(workspace.getPipelinesDir(), {
+        host: process.env.REDIS_HOST || "localhost",
+        port: parseInt(process.env.REDIS_PORT || "6379"),
+        password: process.env.REDIS_PASSWORD,
+      });
 
       // Enqueue job
       const jobId = await executor.enqueueJob({
@@ -450,8 +451,8 @@ program
       });
 
       console.log(`✓ Job enqueued: ${jobId}`);
-      console.log(`\n📊 Monitor: pnpm dproc history`);
-      console.log(`📁 Output: pipelines/${pipelineName}/output/reports/\n`);
+      console.log(`\n📊 Monitor: dproc history`);
+      console.log(`📁 Output: ${workspace.getOutputsDir()}/${pipelineName}/\n`);
     } catch (error: any) {
       console.error("✗ Error:", error.message);
       process.exit(1);
@@ -466,7 +467,7 @@ program
   .description("List all available pipelines")
   .action(async () => {
     try {
-      const pipelinesDir = path.join(process.cwd(), "pipelines");
+      const pipelinesDir = workspace.getPipelinesDir();
 
       console.log("\n📂 Available Pipelines:\n");
 
@@ -489,7 +490,7 @@ program
 
       if (pipelines.length === 0) {
         console.log("  No pipelines found.");
-        console.log("\n💡 Create one with: pnpm dproc init my-pipeline\n");
+        console.log("\n💡 Create one with: dproc init my-pipeline\n");
         return;
       }
 
@@ -521,7 +522,7 @@ program
     try {
       console.log(`🔍 Validating pipeline: ${pipelineName}\n`);
 
-      const pipelinesDir = path.join(process.cwd(), "pipelines");
+      const pipelinesDir = workspace.getPipelinesDir();
       const loader = new PipelineLoader(pipelinesDir);
 
       const validation = await loader.validatePipeline(pipelineName);
@@ -559,14 +560,17 @@ program
   .description("Show execution statistics")
   .action(async (pipelineName?: string) => {
     try {
-      const db = new MetadataDB();
+      const db = createDatabase();
 
       if (pipelineName) {
-        const stats = db.getPipelineStats(pipelineName) as PipelineStats;
+        const stats = (await db.getPipelineStats(
+          pipelineName
+        )) as PipelineStats;
         if (!stats) {
           console.log(
             `\n📊 No statistics found for pipeline: ${pipelineName}\n`
           );
+          await db.close();
           return;
         }
 
@@ -584,12 +588,13 @@ program
           `  Total Tokens Used: ${stats.totalTokensUsed.toLocaleString()}`
         );
       } else {
-        const allStats = db.getPipelineStats() as PipelineStats[];
+        const allStats = (await db.getPipelineStats()) as PipelineStats[];
 
         console.log("\n📊 Global Statistics:\n");
 
         if (allStats.length === 0) {
           console.log("  No execution history found.\n");
+          await db.close();
           return;
         }
 
@@ -604,7 +609,7 @@ program
       }
 
       console.log();
-      db.close();
+      await db.close();
     } catch (error: any) {
       console.error("✗ Error:", error.message);
       process.exit(1);
@@ -620,15 +625,16 @@ program
   .option("-l, --limit <number>", "Number of records to show", "10")
   .action(async (pipelineName?: string, options?: { limit: string }) => {
     try {
-      const db = new MetadataDB();
+      const db = createDatabase();
 
-      const executions = db.listExecutions({
+      const executions = await db.listExecutions({
         pipelineName,
         limit: parseInt(options?.limit || "10"),
       });
 
       if (executions.length === 0) {
         console.log("\n📜 No execution history found.\n");
+        await db.close();
         return;
       }
 
@@ -641,7 +647,9 @@ program
             ? "✅"
             : exec.status === "failed"
               ? "❌"
-              : "⏳";
+              : exec.status === "cancelled"
+                ? "🚫"
+                : "⏳";
         const date = new Date(exec.createdAt).toLocaleString();
 
         console.log(`  ${status} ${exec.id}`);
@@ -658,11 +666,80 @@ program
         console.log();
       }
 
-      db.close();
+      await db.close();
     } catch (error: any) {
       console.error("✗ Error:", error.message);
       process.exit(1);
     }
+  });
+
+program
+  .command("configure")
+  .alias("config")
+  .description("Configure API keys and settings")
+  .action(async () => {
+    const secretsManager = new SecretsManager();
+
+    console.log(chalk.blue("\n🔐 DProc Configuration\n"));
+    console.log(
+      "API keys will be stored securely in:",
+      chalk.gray(secretsManager.getSecretsPath())
+    );
+    console.log(chalk.dim("Leave blank to skip a provider\n"));
+
+    const answers = await inquirer.prompt([
+      {
+        type: "password",
+        name: "openai",
+        message: "OpenAI API Key:",
+        mask: "*",
+      },
+      {
+        type: "password",
+        name: "anthropic",
+        message: "Anthropic API Key:",
+        mask: "*",
+      },
+      {
+        type: "password",
+        name: "google",
+        message: "Google API Key:",
+        mask: "*",
+      },
+    ]);
+
+    // Save non-empty keys
+    const secrets = await secretsManager.load();
+
+    if (answers.openai?.trim()) {
+      secrets.apiKeys.openai = answers.openai.trim();
+    }
+    if (answers.anthropic?.trim()) {
+      secrets.apiKeys.anthropic = answers.anthropic.trim();
+    }
+    if (answers.google?.trim()) {
+      secrets.apiKeys.google = answers.google.trim();
+    }
+
+    await secretsManager.save(secrets);
+
+    console.log(chalk.green("\n✓ Configuration saved successfully!\n"));
+
+    const savedKeys = Object.keys(secrets.apiKeys).filter(
+      (k) => secrets.apiKeys[k as keyof typeof secrets.apiKeys]
+    );
+    if (savedKeys.length > 0) {
+      console.log("Configured providers:", chalk.cyan(savedKeys.join(", ")));
+    }
+  });
+
+program
+  .command("worker")
+  .description("Start background worker (use 'dproc-worker' instead)")
+  .action(() => {
+    console.log("\n💡 To start the worker, use:");
+    console.log("  dproc-worker\n");
+    console.log("This will process jobs from the queue in the background.\n");
   });
 
 program.parse();

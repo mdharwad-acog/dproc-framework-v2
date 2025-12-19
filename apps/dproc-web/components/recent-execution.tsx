@@ -49,7 +49,7 @@ export function RecentExecutions() {
       <Card>
         <CardContent className="text-center py-8">
           <Clock className="size-12 text-gray-300 mx-auto mb-2" />
-          <p className="text-gray-600">No executions yet</p>
+          <p className="text-gray-600">No reports yet</p>
         </CardContent>
       </Card>
     );

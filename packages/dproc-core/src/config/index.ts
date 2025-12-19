@@ -2,6 +2,7 @@ import { readFile } from "fs/promises";
 import { parse } from "yaml";
 import type { SystemConfig, LLMConfig, PipelineSpec } from "@dproc/types";
 import path from "path";
+import { SecretsManager } from "./secrets.js";
 import "dotenv/config";
 
 export class ConfigLoader {
@@ -50,19 +51,55 @@ export class ConfigLoader {
   /**
    * Get API key for provider
    */
-  getApiKey(provider: "openai" | "anthropic" | "google"): string {
-    const envKeys = {
-      openai: "OPENAI_API_KEY",
-      anthropic: "ANTHROPIC_API_KEY",
-      google: "GOOGLE_API_KEY",
-    };
+  // getApiKey(provider: "openai" | "anthropic" | "google"): string {
+  //   const envKeys = {
+  //     openai: "OPENAI_API_KEY",
+  //     anthropic: "ANTHROPIC_API_KEY",
+  //     google: "GOOGLE_API_KEY",
+  //   };
 
-    const key = process.env[envKeys[provider]];
-    if (!key) {
-      throw new Error(
-        `Missing API key for ${provider}. Set ${envKeys[provider]} environment variable.`
-      );
+  //   const key = process.env[envKeys[provider]];
+  //   if (!key) {
+  //     throw new Error(
+  //       `Missing API key for ${provider}. Set ${envKeys[provider]} environment variable.`
+  //     );
+  //   }
+  //   return key;
+  // }
+
+  // Add to ConfigLoader class
+  private secretsManager = new SecretsManager();
+
+  /**
+   * Get API key with priority: ENV > secrets.json
+   */
+  getApiKey(provider: "openai" | "anthropic" | "google"): string {
+    // Priority 1: Environment variable
+    const envKey = process.env[`${provider.toUpperCase()}_API_KEY`];
+    if (envKey) {
+      return envKey;
     }
-    return key;
+
+    // Priority 2: Secrets file (synchronous read for simplicity)
+    try {
+      const secrets = require("fs").readFileSync(
+        this.secretsManager.getSecretsPath(),
+        "utf-8"
+      );
+      const parsed = JSON.parse(secrets);
+      if (parsed.apiKeys[provider]) {
+        return parsed.apiKeys[provider];
+      }
+    } catch {
+      // Secrets file doesn't exist or can't be read
+    }
+
+    throw new Error(
+      `No API key found for ${provider}. Set ${provider.toUpperCase()}_API_KEY environment variable or run 'dproc configure'`
+    );
   }
 }
+
+export { SecretsManager } from "./secrets.js";
+export type { Secrets } from "./secrets.js";
+export { WorkspaceManager } from "./workspace.js";

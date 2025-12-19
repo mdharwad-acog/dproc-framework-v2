@@ -106,7 +106,7 @@ export default function DashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Total Executions
+                  Report Generated
                 </CardTitle>
                 <TrendingUp className="size-4 text-gray-500" />
               </CardHeader>
@@ -133,7 +133,7 @@ export default function DashboardPage() {
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">Avg Time</CardTitle>
+                <CardTitle className="text-sm font-medium">Avg. Time</CardTitle>
                 <Clock className="size-4 text-gray-500" />
               </CardHeader>
               <CardContent>

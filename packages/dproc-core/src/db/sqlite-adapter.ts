@@ -1,16 +1,20 @@
 import Database from "better-sqlite3";
 import type { ExecutionRecord, PipelineStats } from "@dproc/types";
+import { DatabaseAdapter, ExecutionFilters } from "./adapter.js";
+import { WorkspaceManager } from "../config/workspace.js";
 
-export class MetadataDB {
+export class SQLiteAdapter implements DatabaseAdapter {
   private db: Database.Database;
 
-  constructor(dbPath: string = "./dproc.db") {
-    this.db = new Database(dbPath);
+  constructor(dbPath?: string) {
+    // Use WorkspaceManager if no path provided
+    const path = dbPath || new WorkspaceManager().getDatabasePath();
+    this.db = new Database(path);
     this.init();
   }
 
   private init() {
-    // Executions table - use snake_case for SQL columns
+    // Executions table - add 'cancelled' status support
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS executions (
         id TEXT PRIMARY KEY,
@@ -19,7 +23,7 @@ export class MetadataDB {
         userId TEXT,
         inputs TEXT NOT NULL,
         outputFormat TEXT NOT NULL,
-        status TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('queued', 'processing', 'completed', 'failed', 'cancelled')),
         priority TEXT NOT NULL,
         outputPath TEXT,
         bundlePath TEXT,
@@ -130,18 +134,21 @@ export class MetadataDB {
 
     stmt.run(...values);
 
-    // Update pipeline stats if completed or failed
-    if (status === "completed" || status === "failed") {
+    // Update pipeline stats if completed, failed, or cancelled
+    if (
+      status === "completed" ||
+      status === "failed" ||
+      status === "cancelled"
+    ) {
       this.updatePipelineStats(id);
     }
   }
 
   private updatePipelineStats(executionId: string): void {
-    // Get execution details
-    const execution = this.getExecution(executionId);
+    // Get execution details (use sync version)
+    const execution = this.getExecutionSync(executionId);
     if (!execution) return;
 
-    // Update or insert pipeline stats
     const stmt = this.db.prepare(`
       INSERT INTO pipeline_stats (
         pipelineName, totalExecutions, successfulExecutions, failedExecutions,
@@ -178,29 +185,9 @@ export class MetadataDB {
     );
   }
 
-  getExecution(id: string): ExecutionRecord | null {
+  private getExecutionSync(id: string): ExecutionRecord | null {
     const stmt = this.db.prepare(`
-      SELECT 
-        id,
-        jobId,
-        pipelineName,
-        userId,
-        inputs,
-        outputFormat,
-        status,
-        priority,
-        outputPath,
-        bundlePath,
-        processorMetadata,
-        llmMetadata,
-        executionTime,
-        tokensUsed,
-        error,
-        createdAt,
-        startedAt,
-        completedAt
-      FROM executions
-      WHERE id = ?
+      SELECT * FROM executions WHERE id = ?
     `);
 
     const row = stmt.get(id) as any;
@@ -216,32 +203,13 @@ export class MetadataDB {
     };
   }
 
-  listExecutions(filters?: {
-    pipelineName?: string;
-    userId?: string;
-    status?: string;
-    limit?: number;
-  }): ExecutionRecord[] {
+  async getExecution(id: string): Promise<ExecutionRecord | null> {
+    return this.getExecutionSync(id);
+  }
+
+  async listExecutions(filters?: ExecutionFilters): Promise<ExecutionRecord[]> {
     let query = `
-      SELECT 
-        id,
-        jobId,
-        pipelineName,
-        userId,
-        inputs,
-        outputFormat,
-        status,
-        priority,
-        outputPath,
-        bundlePath,
-        executionTime,
-        tokensUsed,
-        error,
-        createdAt,
-        startedAt,
-        completedAt
-      FROM executions
-      WHERE 1=1
+      SELECT * FROM executions WHERE 1=1
     `;
 
     const params: any[] = [];
@@ -268,10 +236,16 @@ export class MetadataDB {
     return rows.map((row) => ({
       ...row,
       inputs: JSON.parse(row.inputs),
+      processorMetadata: row.processorMetadata
+        ? JSON.parse(row.processorMetadata)
+        : undefined,
+      llmMetadata: row.llmMetadata ? JSON.parse(row.llmMetadata) : undefined,
     }));
   }
 
-  getPipelineStats(pipelineName?: string): PipelineStats | PipelineStats[] {
+  async getPipelineStats(
+    pipelineName?: string
+  ): Promise<PipelineStats | PipelineStats[]> {
     if (pipelineName) {
       const stmt = this.db.prepare(`
         SELECT * FROM pipeline_stats WHERE pipelineName = ?
@@ -285,7 +259,7 @@ export class MetadataDB {
     }
   }
 
-  close() {
+  async close(): Promise<void> {
     this.db.close();
   }
 }

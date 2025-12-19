@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.next/
+*.log
+.git/
+.env
+.env.local
+*.db
+dproc.db
+pipelines/*/output/
+workspace/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store

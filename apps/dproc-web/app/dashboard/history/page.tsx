@@ -55,13 +55,13 @@ export default function HistoryPage() {
           </Link>
         </Button>
 
-        <h1 className="text-3xl font-bold mb-6">Execution History</h1>
+        <h1 className="text-3xl font-bold mb-6">History</h1>
 
         {executions.length === 0 ? (
           <Card>
             <CardContent className="text-center py-12">
               <Clock className="size-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold mb-2">No executions yet</h3>
+              <h3 className="text-xl font-semibold mb-2">No reports yet</h3>
               <p className="text-gray-600">
                 Execute a pipeline to see history here
               </p>

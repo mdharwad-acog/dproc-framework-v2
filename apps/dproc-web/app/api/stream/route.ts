@@ -2,9 +2,12 @@ import { streamText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { PipelineScanner, PipelineLoader, TemplateEngine } from "@dproc/core";
+import { PipelineLoader } from "@dproc/core/dist/pipeline/loader.js";
+import { TemplateRenderer } from "@dproc/core/dist/template/renderer.js";
+import { WorkspaceManager } from "@dproc/core/dist/config/workspace.js";
 
-const PIPELINES_DIR = process.env.PIPELINES_DIR || "./pipelines";
+const workspace = new WorkspaceManager();
+const PIPELINES_DIR = workspace.getPipelinesDir();
 
 export async function POST(req: Request) {
   try {
@@ -22,22 +25,48 @@ export async function POST(req: Request) {
     }
 
     // Load pipeline
-    const scanner = new PipelineScanner(PIPELINES_DIR);
-    const pipelinePath = await scanner.getPipelinePath(pipelineName);
+    const loader = new PipelineLoader(PIPELINES_DIR);
+    const pipelines = await loader.listPipelines();
 
-    if (!pipelinePath) {
+    if (!pipelines.includes(pipelineName)) {
       return new Response(JSON.stringify({ error: "Pipeline not found" }), {
         status: 404,
       });
     }
 
-    const loader = new PipelineLoader();
-    const config = await loader.load(pipelinePath);
-    const promptTemplate = await loader.getPromptTemplate(pipelinePath, config);
+    const spec = await loader.loadSpec(pipelineName);
+    const config = await loader.loadConfig(pipelineName);
 
-    // Render prompt (skip bundle for web UI)
-    const templateEngine = new TemplateEngine();
-    const prompt = templateEngine.renderPrompt(promptTemplate, inputs, null);
+    // Load prompt template (simple version for web UI)
+    const path = await import("path");
+    const fs = await import("fs/promises");
+    const promptsDir = path.join(PIPELINES_DIR, pipelineName, "prompts");
+    const promptFiles = await fs.readdir(promptsDir);
+    const mainPromptFile = promptFiles.find(
+      (f) => f.includes("main") || f.endsWith(".md")
+    );
+
+    if (!mainPromptFile) {
+      return new Response(
+        JSON.stringify({ error: "Prompt template not found" }),
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const promptTemplate = await fs.readFile(
+      path.join(promptsDir, mainPromptFile),
+      "utf-8"
+    );
+
+    // Render prompt
+    const templateRenderer = new TemplateRenderer();
+    const prompt = templateRenderer.renderPrompt(promptTemplate, {
+      inputs,
+      vars: spec.variables || {},
+      data: {}, // No processor data in web UI
+    });
 
     // Get LLM model
     let llmModel;

@@ -1,10 +1,12 @@
 import { Queue } from "bullmq";
 import { pathToFileURL } from "url";
-import { MetadataDB } from "../db/sqlite.js";
+import { createDatabase } from "../db/factory.js";
+import type { DatabaseAdapter } from "../db/adapter.js";
 import { LLMProvider } from "../llm/provider.js";
 import { TemplateRenderer } from "../template/renderer.js";
 import { ConfigLoader } from "../config/index.js";
 import { CacheManager } from "../cache/index.js";
+import { WorkspaceManager } from "../config/workspace.js";
 import * as fs from "fs/promises";
 import * as path from "path";
 import type {
@@ -19,22 +21,48 @@ import type {
 
 export class ReportExecutor {
   private queue: Queue;
-  private db: MetadataDB;
+  private db: DatabaseAdapter;
   private llmProvider: LLMProvider;
   private templateRenderer: TemplateRenderer;
   private configLoader: ConfigLoader;
   private cacheStore: CacheManager;
+  private workspace: WorkspaceManager;
+  private activeJobs = new Map<string, AbortController>();
 
   constructor(
     private pipelinesDir: string,
     redisConfig: any
   ) {
     this.queue = new Queue("dproc-jobs", { connection: redisConfig });
-    this.db = new MetadataDB("./dproc.db");
+    this.db = createDatabase();
     this.llmProvider = new LLMProvider();
     this.templateRenderer = new TemplateRenderer();
     this.configLoader = new ConfigLoader();
     this.cacheStore = new CacheManager();
+    this.workspace = new WorkspaceManager();
+  }
+
+  /**
+   * Cancel a running job
+   */
+  async cancelJob(executionId: string): Promise<boolean> {
+    const controller = this.activeJobs.get(executionId);
+
+    if (!controller) {
+      console.log(`[${executionId}] Job not found or already completed`);
+      return false;
+    }
+
+    console.log(`[${executionId}] Cancelling job...`);
+    controller.abort();
+    this.activeJobs.delete(executionId);
+
+    await this.db.updateStatus(executionId, "cancelled", {
+      completedAt: Date.now(),
+      error: "Job cancelled by user",
+    });
+
+    return true;
   }
 
   /**
@@ -51,7 +79,6 @@ export class ReportExecutor {
       },
     });
 
-    // Save to database
     await this.db.insertExecution({
       id: `exec-${Date.now()}`,
       jobId: job.id!,
@@ -73,14 +100,16 @@ export class ReportExecutor {
   async execute(jobData: JobData): Promise<void> {
     const startTime = Date.now();
 
-    // Find existing execution record by jobId (created by web UI or CLI)
-    const executions = this.db.listExecutions({ limit: 1000 });
+    const executions = await this.db.listExecutions({ limit: 1000 });
     const existingExecution = executions.find((e) => e.jobId === jobData.jobId);
 
-    // Use existing execution ID or create new one (for CLI)
     const executionId = existingExecution
       ? existingExecution.id
       : `exec-${Date.now()}-${jobData.jobId}`;
+
+    // Create abort controller for cancellation support
+    const abortController = new AbortController();
+    this.activeJobs.set(executionId, abortController);
 
     const logger = {
       info: (msg: string) => console.log(`[${executionId}] INFO: ${msg}`),
@@ -90,7 +119,11 @@ export class ReportExecutor {
     };
 
     try {
-      // Only create if doesn't exist (CLI case)
+      // Check cancellation before starting
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled before execution");
+      }
+
       if (!existingExecution) {
         await this.db.insertExecution({
           id: executionId,
@@ -105,43 +138,55 @@ export class ReportExecutor {
           startedAt: Date.now(),
         });
       } else {
-        // Update existing record to processing (Web UI case)
         await this.db.updateStatus(executionId, "processing", {
           startedAt: Date.now(),
         });
       }
 
+      // Use WorkspaceManager for pipeline path
+      const pipelinePath = path.join(
+        this.workspace.getPipelinesDir(),
+        jobData.pipelineName
+      );
+
       // ========================================================================
       // STEP 1: Load pipeline configuration
       // ========================================================================
-      console.log(`[${executionId}] Loading pipeline configuration...`);
-      const pipelinePath = path.join(this.pipelinesDir, jobData.pipelineName);
+      logger.info("Loading pipeline configuration...");
       const spec = await this.configLoader.loadPipelineSpec(pipelinePath);
       const config = await this.configLoader.loadPipelineConfig(pipelinePath);
       const vars = spec.variables ?? {};
 
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled during configuration loading");
+      }
+
       // ========================================================================
       // STEP 2: Execute data processor
       // ========================================================================
-      console.log(`[${executionId}] Executing data processor...`);
+      logger.info("Executing data processor...");
       const processorResult = await this.executeProcessor(
         pipelinePath,
         jobData.inputs,
-        executionId
+        executionId,
+        abortController.signal
       );
 
-      // Save bundle
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled during processor execution");
+      }
+
       const bundlePath = await this.saveBundle(
         pipelinePath,
         processorResult.attributes,
         executionId
       );
-      console.log(`[${executionId}] Bundle saved: ${bundlePath}`);
+      logger.info(`Bundle saved: ${bundlePath}`);
 
       // ========================================================================
       // STEP 3: Load and render prompt templates
       // ========================================================================
-      console.log(`[${executionId}] Rendering prompts...`);
+      logger.info("Rendering prompts...");
       const prompts = await this.loadPrompts(pipelinePath);
       const renderedPrompts: Record<string, string> = {};
 
@@ -153,14 +198,22 @@ export class ReportExecutor {
         });
       }
 
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled during prompt rendering");
+      }
+
       // ========================================================================
       // STEP 4: LLM Enrichment with structured JSON extraction
       // ========================================================================
-      console.log(`[${executionId}] Calling LLM for enrichment...`);
+      logger.info("Calling LLM for enrichment...");
       const llmResult = await this.llmProvider.generate(config.llm, {
         prompt: renderedPrompts.main! || Object.values(renderedPrompts)[0]!,
         extractJson: true,
       });
+
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled after LLM call");
+      }
 
       const llmEnrichment: LLMEnrichmentResult = {
         attributes: llmResult.json || {},
@@ -172,9 +225,7 @@ export class ReportExecutor {
         },
       };
 
-      console.log(
-        `[${executionId}] LLM tokens used: ${llmResult.usage?.totalTokens}`
-      );
+      logger.info(`LLM tokens used: ${llmResult.usage?.totalTokens}`);
 
       // ========================================================================
       // STEP 5: Build complete template context
@@ -197,7 +248,7 @@ export class ReportExecutor {
       // ========================================================================
       // STEP 6: Render final template
       // ========================================================================
-      console.log(`[${executionId}] Rendering template...`);
+      logger.info("Rendering template...");
       const template = await this.loadTemplate(
         pipelinePath,
         jobData.outputFormat
@@ -206,6 +257,10 @@ export class ReportExecutor {
         template,
         templateContext
       );
+
+      if (abortController.signal.aborted) {
+        throw new Error("Job cancelled during template rendering");
+      }
 
       // ========================================================================
       // STEP 7: Save output
@@ -216,7 +271,7 @@ export class ReportExecutor {
         jobData.outputFormat,
         executionId
       );
-      console.log(`[${executionId}] Output saved: ${outputPath}`);
+      logger.info(`Output saved: ${outputPath}`);
 
       // ========================================================================
       // STEP 8: Update database with success
@@ -231,39 +286,51 @@ export class ReportExecutor {
         tokensUsed: llmResult.usage?.totalTokens,
       });
 
-      console.log(
-        `[${executionId}] ✓ Execution completed in ${Date.now() - startTime}ms`
-      );
+      logger.info(`✓ Execution completed in ${Date.now() - startTime}ms`);
     } catch (error: any) {
-      logger.error(`Execution failed: ${error.message}`);
-      await this.db.updateStatus(executionId, "failed", {
-        completedAt: Date.now(),
-        executionTime: Date.now() - startTime,
-        error: error.message,
-      });
+      if (error.message?.includes("cancelled")) {
+        logger.warn(`Job cancelled: ${error.message}`);
+        await this.db.updateStatus(executionId, "cancelled", {
+          completedAt: Date.now(),
+          executionTime: Date.now() - startTime,
+          error: error.message,
+        });
+      } else {
+        logger.error(`Execution failed: ${error.message}`);
+        await this.db.updateStatus(executionId, "failed", {
+          completedAt: Date.now(),
+          executionTime: Date.now() - startTime,
+          error: error.message,
+        });
+      }
       throw error;
+    } finally {
+      this.activeJobs.delete(executionId);
     }
   }
 
   /**
-   * Execute processor.ts with full context
+   * Execute processor.ts with abort signal support
    */
   private async executeProcessor(
     pipelinePath: string,
     inputs: Record<string, unknown>,
-    executionId: string
+    executionId: string,
+    signal: AbortSignal
   ): Promise<ProcessorResult> {
     const processorPath = path.join(pipelinePath, "processor.ts");
     const processorUrl = pathToFileURL(processorPath).href;
 
-    // Check if processor exists
+    if (signal.aborted) {
+      throw new Error("Processor execution cancelled");
+    }
+
     try {
       await fs.access(processorPath);
     } catch {
       throw new Error(`Processor not found: ${processorPath}`);
     }
 
-    // Build context with all libraries and utilities
     const context: ProcessorContext = {
       libs: {
         fetch,
@@ -276,10 +343,11 @@ export class ReportExecutor {
         axios: await import("axios"),
       },
       readDataFile: async (filename: string) => {
+        if (signal.aborted) throw new Error("Cancelled");
+
         const dataPath = path.join(pipelinePath, "data", filename);
         const content = await fs.readFile(dataPath, "utf-8");
 
-        // Auto-detect file type and parse
         if (filename.endsWith(".json")) {
           return JSON.parse(content);
         } else if (filename.endsWith(".csv")) {
@@ -290,6 +358,8 @@ export class ReportExecutor {
         }
       },
       saveBundle: async (data: any, filename: string) => {
+        if (signal.aborted) throw new Error("Cancelled");
+
         const bundlePath = path.join(
           pipelinePath,
           "output",
@@ -309,7 +379,6 @@ export class ReportExecutor {
           await this.cacheStore.set(`${pipelinePath}:${key}`, value, ttl);
         },
       },
-
       logger: {
         info: (msg: string) => console.log(`[${executionId}] INFO:`, msg),
         error: (msg: string) => console.error(`[${executionId}] ERROR:`, msg),
@@ -318,9 +387,7 @@ export class ReportExecutor {
       },
     };
 
-    // Execute processor
     const cacheBuster = Date.now();
-
     const processorModule = await import(processorUrl + "?t=" + cacheBuster);
 
     if (!processorModule.default) {
@@ -329,7 +396,6 @@ export class ReportExecutor {
 
     const result = await processorModule.default(inputs, context);
 
-    // Validate result
     if (!result || typeof result !== "object") {
       throw new Error("Processor must return ProcessorResult object");
     }
@@ -340,7 +406,6 @@ export class ReportExecutor {
     return result;
   }
 
-  // Helper methods
   private async loadPrompts(
     pipelinePath: string
   ): Promise<Record<string, string>> {
@@ -372,7 +437,6 @@ export class ReportExecutor {
   ): Promise<string> {
     const templatesDir = path.join(pipelinePath, "templates");
 
-    // Try different naming conventions
     const possibleNames = [
       `report.${format}.njk`,
       `${format}.njk`,

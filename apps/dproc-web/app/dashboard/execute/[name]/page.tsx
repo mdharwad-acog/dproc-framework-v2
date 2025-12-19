@@ -32,6 +32,7 @@ import {
   Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 type PipelineSpec = {
   pipeline: {
@@ -188,7 +189,7 @@ export default function ExecutePipelinePage({
               Back to Dashboard
             </Link>
           </Button>
-          <h1 className="text-3xl font-bold mb-2">Execute Pipeline</h1>
+          <h1 className="text-3xl font-bold mb-2">Generate Report</h1>
           <p className="text-gray-600">{spec.pipeline.description}</p>
         </div>
 
@@ -310,6 +311,34 @@ export default function ExecutePipelinePage({
                       </>
                     )}
                   </Button>
+                  {executionStatus === "processing" && (
+                    <Button
+                      variant="destructive"
+                      onClick={async () => {
+                        if (
+                          !confirm("Are you sure you want to cancel this job?")
+                        )
+                          return;
+
+                        try {
+                          const response = await fetch(
+                            `/api/jobs/${executionId}/cancel`,
+                            {
+                              method: "POST",
+                            }
+                          );
+
+                          if (response.ok) {
+                            setExecutionStatus("cancelled");
+                          }
+                        } catch (error) {
+                          console.log(error);
+                        }
+                      }}
+                    >
+                      Cancel Job
+                    </Button>
+                  )}
 
                   {executionStatus && (
                     <Button onClick={handleReset} variant="outline" size="lg">
@@ -325,7 +354,7 @@ export default function ExecutePipelinePage({
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>Execution Status</CardTitle>
+                <CardTitle>Status</CardTitle>
               </CardHeader>
               <CardContent>
                 {!executionStatus && !executing && (
@@ -338,7 +367,7 @@ export default function ExecutePipelinePage({
                 {executing && !executionStatus && (
                   <div className="text-center py-8">
                     <Loader2 className="size-8 animate-spin text-blue-600 mx-auto mb-4" />
-                    <p className="text-gray-600">Enqueueing job...</p>
+                    <p className="text-gray-600">Starting...</p>
                     <p className="text-xs text-gray-500 mt-2">
                       Worker will pick it up shortly
                     </p>
