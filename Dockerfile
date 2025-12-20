@@ -30,7 +30,7 @@ RUN pnpm --filter dproc-web build
 FROM node:20-alpine
 
 # Install pnpm
-RUN npm install -g pnpm
+RUN npm install -g pnpm tsx
 
 WORKDIR /app
 
@@ -49,6 +49,7 @@ RUN chmod +x /app/packages/dproc-cli/dist/worker.js 2>/dev/null || true
 
 # Set environment
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--import tsx/esm"
 ENV DPROC_WORKSPACE=/shared/dproc-workspace
 ENV PORT=3000
 

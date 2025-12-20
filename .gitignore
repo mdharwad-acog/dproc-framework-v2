@@ -52,3 +52,9 @@ coverage/
 
 # Turbo (if using Turborepo)
 .turbo
+
+# Database files
+*.db
+*.db-*
+*.sqlite
+*.sqlite3

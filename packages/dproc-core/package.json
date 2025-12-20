@@ -12,7 +12,8 @@
     "./dist/db/factory.js": "./dist/db/factory.js",
     "./dist/db/adapter.js": "./dist/db/adapter.js",
     "./dist/config/workspace.js": "./dist/config/workspace.js",
-    "./dist/template/renderer.js": "./dist/template/renderer.js"
+    "./dist/template/renderer.js": "./dist/template/renderer.js",
+    "./dist/config/secrets.js": "./dist/config/secrets.js"
   },
   "scripts": {
     "build": "tsc",

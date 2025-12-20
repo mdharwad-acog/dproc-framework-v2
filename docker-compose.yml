@@ -50,6 +50,7 @@ services:
       - "description=DProc Framework - LLM Report Generation"
     volumes:
       - /shared/dproc-workspace:/shared/dproc-workspace
+      - ~/.dproc:/root/.dproc:ro
     environment:
       # Database
       DATABASE_URL: postgresql://dproc:${DB_PASSWORD:-dproc_secure_2024}@postgres:5432/dproc
@@ -100,6 +101,7 @@ services:
     command: ["node", "/app/packages/dproc-cli/dist/worker.js"]
     volumes:
       - /shared/dproc-workspace:/shared/dproc-workspace
+      - ~/.dproc:/root/.dproc:ro
     environment:
       # Database
       DATABASE_URL: postgresql://dproc:${DB_PASSWORD:-dproc_secure_2024}@postgres:5432/dproc
